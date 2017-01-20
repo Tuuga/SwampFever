@@ -4,62 +4,87 @@ using UnityEngine;
 
 public class TilePlacing : MonoBehaviour {
 
-	public GameObject pathPrefab;
-	public GameObject swampPrefab;
-	public GameObject wallPrefab;
-
+	public Color empty, path, swamp, wall;
 	public LayerMask mask;
-	public Vector2 boardSize;
 
-	List<GameObject> tiles;
-	GameObject tileTypeInUse;
-	Transform tilesParent;
+	List<TileProperties> tiles;
+	TileType typeInUse;
 
 	void Start () {
-		tileTypeInUse = pathPrefab;     // Default
-		tilesParent = GameObject.Find("Tiles").transform;
-		tiles = new List<GameObject>(new GameObject[(int)(boardSize.x * boardSize.y)]);
+		tiles = FindObjectOfType<BuildBoard>().GetTilesList();
 	}
 
 	void Update () {
+
 		if (Input.GetKeyDown(KeyCode.Mouse0)) {
-			SpawnTile(tileTypeInUse);
+			ChangeTile(typeInUse);
+		}
+		if (Input.GetKeyDown(KeyCode.Mouse1)) {
+			ChangeTile(TileType.Empty);
 		}
 
 		if (Input.GetKeyDown(KeyCode.Alpha1)) {
-			tileTypeInUse = pathPrefab;
+			typeInUse = TileType.Path;
 		}
 		if (Input.GetKeyDown(KeyCode.Alpha2)) {
-			tileTypeInUse = swampPrefab;
+			typeInUse = TileType.Swamp;
 		}
 		if (Input.GetKeyDown(KeyCode.Alpha3)) {
-			tileTypeInUse = wallPrefab;
+			typeInUse = TileType.Wall;
 		}
 	}
 
-	Vector3 RoundPos (Vector3 pos) {
-		var newPos = pos;
-		newPos.x = Mathf.Round(pos.x);
-		newPos.y = 0.05f;			// MAGIC NUBER
-		newPos.z = Mathf.Round(pos.z);
-		return newPos;
-	}
-
-	// Messy function
-	// Spawn a tile at the rounded mouse position
-	void SpawnTile (GameObject tile) {
+	void ChangeTile (TileType type) {
 		Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
 		RaycastHit hit;
+
 		if (Physics.Raycast(ray, out hit, Mathf.Infinity, mask)) {
-			var roundedHitPos = RoundPos(hit.point);
-			var index = (int)(roundedHitPos.x * (boardSize.y + roundedHitPos.y) + roundedHitPos.z);
-			if (tiles[index] != null) {
-				print(index + " index already has a tile");
-				return;
+			var tile = hit.transform.GetComponentInParent<TileProperties>();
+			if (tile.GetTileType() == TileType.Empty || type == TileType.Empty) {
+				tile.ChangeTileType(type);
+				ChangeTileColor(type, tile);
+				print(CheckAdjacentTiles(tile));
 			}
-			var tileIns = (GameObject)Instantiate(tile, roundedHitPos, tile.transform.rotation);
-			tileIns.transform.parent = tilesParent;
-			tiles[index] = tileIns;
 		}
+	}
+
+	void ChangeTileColor (TileType type, TileProperties tile) {
+		var meshRenderer = tile.GetComponentInChildren<MeshRenderer>();
+
+		if (type == TileType.Empty) {
+			meshRenderer.material.color = empty;
+		} else if (type == TileType.Path) {
+			meshRenderer.material.color = path;
+		} else if (type == TileType.Swamp) {
+			meshRenderer.material.color = swamp;
+		} else {
+			meshRenderer.material.color = wall;
+		}
+	}
+
+	bool CheckAdjacentTiles (TileProperties tile) {
+		int index = tiles.IndexOf(tile);
+		List<TileProperties> adjacentTiles = new List<TileProperties>();
+
+		if (index + 1 < tiles.Count && Mathf.Abs(index % 10 - (index + 1) % 10) == 1) {
+			adjacentTiles.Add(tiles[index + 1]);
+		}
+		if (index - 1 >= 0 && Mathf.Abs(index % 10 - (index - 1) % 10) == 1) {
+			adjacentTiles.Add(tiles[index - 1]);
+		}
+		if (index + 10 < tiles.Count) {
+			adjacentTiles.Add(tiles[index + 10]);
+		}
+		if (index - 10 >= 0) {
+			adjacentTiles.Add(tiles[index - 10]);
+		}
+
+		foreach (TileProperties t in adjacentTiles) {
+			if (t.GetTileType() == TileType.Path || t.GetTileType() == TileType.Swamp || t.GetTileType() == TileType.Wall) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 }
