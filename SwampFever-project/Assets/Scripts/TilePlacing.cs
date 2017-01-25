@@ -4,14 +4,18 @@ using UnityEngine;
 
 public class TilePlacing : MonoBehaviour {
 
-	public Color empty, path, swamp, wall;
+	public Material empty, path, swamp, wall;
 	public LayerMask mask;
 
 	List<TileProperties> tiles;
-	TileType typeInUse;
+	TileType typeInUse = TileType.Empty;
 
 	void Start () {
-		tiles = FindObjectOfType<BuildBoard>().GetTilesList();
+		var foundTiles = FindObjectsOfType<TileProperties>();
+		tiles = new List<TileProperties>(foundTiles);
+		for (int i = 0; i < foundTiles.Length; i++) {
+			tiles[foundTiles[i].GetIndex()] = foundTiles[i];
+		}
 	}
 
 	void Update () {
@@ -19,17 +23,17 @@ public class TilePlacing : MonoBehaviour {
 		if (Input.GetKeyDown(KeyCode.Mouse0)) {
 			ChangeTile(typeInUse);
 		}
-		if (Input.GetKeyDown(KeyCode.Mouse1)) {
-			ChangeTile(TileType.Empty);
-		}
 
 		if (Input.GetKeyDown(KeyCode.Alpha1)) {
-			typeInUse = TileType.Path;
+			typeInUse = TileType.Empty;
 		}
 		if (Input.GetKeyDown(KeyCode.Alpha2)) {
-			typeInUse = TileType.Swamp;
+			typeInUse = TileType.Path;
 		}
 		if (Input.GetKeyDown(KeyCode.Alpha3)) {
+			typeInUse = TileType.Swamp;
+		}
+		if (Input.GetKeyDown(KeyCode.Alpha4)) {
 			typeInUse = TileType.Wall;
 		}
 	}
@@ -41,24 +45,25 @@ public class TilePlacing : MonoBehaviour {
 		if (Physics.Raycast(ray, out hit, Mathf.Infinity, mask)) {
 			var tile = hit.transform.GetComponentInParent<TileProperties>();
 			if (tile.GetTileType() == TileType.Empty || type == TileType.Empty) {
+				if (!CheckAdjacentTiles(tile)) { print("can't"); return; }
 				tile.ChangeTileType(type);
-				ChangeTileColor(type, tile);
-				print(CheckAdjacentTiles(tile));
+				ChangeTileColor(tile);
 			}
 		}
 	}
 
-	void ChangeTileColor (TileType type, TileProperties tile) {
+	void ChangeTileColor (TileProperties tile) {
 		var meshRenderer = tile.GetComponentInChildren<MeshRenderer>();
+		var type = tile.GetTileType();
 
 		if (type == TileType.Empty) {
-			meshRenderer.material.color = empty;
+			meshRenderer.material = empty;
 		} else if (type == TileType.Path) {
-			meshRenderer.material.color = path;
+			meshRenderer.material = path;
 		} else if (type == TileType.Swamp) {
-			meshRenderer.material.color = swamp;
+			meshRenderer.material = swamp;
 		} else {
-			meshRenderer.material.color = wall;
+			meshRenderer.material = wall;
 		}
 	}
 
@@ -80,7 +85,7 @@ public class TilePlacing : MonoBehaviour {
 		}
 
 		foreach (TileProperties t in adjacentTiles) {
-			if (t.GetTileType() == TileType.Path || t.GetTileType() == TileType.Swamp || t.GetTileType() == TileType.Wall) {
+			if (t.GetTileType() != TileType.Empty) {
 				return true;
 			}
 		}
